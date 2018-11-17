@@ -9,8 +9,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level = logging.INFO)
 handler = logging.FileHandler("log.txt")
 handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 my_env = env.TrafficEnv()
@@ -28,10 +26,13 @@ for i_episode in range(1000000):
         action = bt.choose_action(s_sliding, s_others)
         # print("now_action",int(action))
         s, r, is_done, dist = my_env.step(action)
-        s_sliding_, s_others_ = s[0], s[1]+s[2]
-        # print(s_sliding_)
+        s_sliding_, s_others_ = s[0], np.array(s[1]+s[2])
+        #print(s_others_)
 
         bt.store_transition(s_sliding, s_others, action, r, s_sliding_, s_others_, is_done)
+
+        s_sliding = s_sliding_
+        s_others = s_others_
 
         k += 1
         ep_r += r
@@ -45,4 +46,6 @@ for i_episode in range(1000000):
         if is_done:
             logger.info("collecting! ------Ep:", i_episode, "|Ep_r:", round(ep_r, 2), "|Epsilon", bt.EPSILON)
             print("collecting! ------Ep:", i_episode, "|Ep_r:", round(ep_r, 2), "|Epsilon", bt.EPSILON)
+            if i_episode % 500 == 0:
+                bt.saver.save(bt.sess, './model/my-model.ckpt', global_step=i_episode)
             break

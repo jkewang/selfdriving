@@ -8,7 +8,7 @@ else:
 config_path = "/home/jkwang/learn_sumo/quickstart/quickstart.sumo.cfg"
 sumoBinary = "/usr/bin/sumo"
 sumoguiBinary = "/usr/bin/sumo-gui"
-sumoCmd = [sumoBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
+sumoCmd = [sumoguiBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
 import traci
 import traci.constants as tc
 import math
@@ -51,7 +51,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255 , 0, 0, 255))
         traci.vehicle.setSpeed("agent",10)
-        #traci.gui.trackVehicle('View #0', "agent")
+        traci.gui.trackVehicle('View #0', "agent")
 
         #States
         self.Route = traci.vehicle.getRoute(self.AgentId)
@@ -70,16 +70,21 @@ class TrafficEnv(object):
         self.AgentDecRate = 1.5
         self.minLaneNumber = 0
         self.maxLaneNumber = 1
+        self.oldDistance = 0
+        self.nowDistance = 0
 
     def reset(self):
         self.end = 0
         self.TotalReward = 0
+        self.oldDistance = 0
+        self.nowDistance = 0
+
         traci.load(["-c",config_path,"--collision.action","remove","--no-step-log","--no-warnings","--no-duration-log"])
         print("Resetting...")
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255, 0, 0, 255))
         traci.vehicle.setSpeed("agent", 10)
-        #traci.gui.trackVehicle('View #0', "agent")
+        traci.gui.trackVehicle('View #0', "agent")
 
         traci.simulationStep()
         AgentAvailable = False
@@ -94,7 +99,7 @@ class TrafficEnv(object):
             traci.vehicle.subscribeLeader(self.AgentId,50)
             if vehId == self.AgentId:
                 traci.vehicle.setSpeedMode(self.AgentId,0)
-                #traci.vehicle.setLaneChangeMode(self.AgentId,0)
+                traci.vehicle.setLaneChangeMode(self.AgentId,0)
         self.state = self.perception()
 
         return self.state
@@ -108,12 +113,17 @@ class TrafficEnv(object):
         #    3    |    change right
         #    4    |    do nothing
 
+        position = traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_POSITION]
+        if (abs(position[0])+abs(position[1]))<999:
+            self.maxLaneNumber = 2
+        else:
+            self.maxLaneNumber = 1
+
         self.end = 0
         reward = 0
         DistanceTravelled = 0
-
         if action == 0:
-            maxSpeed = traci.vehicle.getMaxSpeed(self.AgentId)
+            maxSpeed = 16
             time = (maxSpeed - (traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED])) / self.AgentAccRate
             traci.vehicle.slowDown(self.AgentId, maxSpeed, time)
         elif action == 1:
@@ -156,13 +166,26 @@ class TrafficEnv(object):
 
     def cal_reward(self,is_collision):
         if is_collision == 1:
-            return -10
+            print("collision!")
+            return -30
         elif is_collision == 100:
+            print("arrive!")
             return 20
         else:
-            return -0.1
+            self.nowDistance = traci.vehicle.getDistance(self.AgentId)
+            del_distance = self.nowDistance - self.oldDistance
+            reward = del_distance/500
+            self.oldDistance = self.nowDistance
+
+            return reward
 
     def perception(self):
+
+        #the state is defined as:
+        # 0   | 1    | 2    | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+        #speed|cos(a)|sin(a)|l? |r? |dis| r | y | g |l? | c? | r? |
+        #
+
         self.VehicleIds = traci.vehicle.getIDList()
 
         AllVehicleParams = []
@@ -216,9 +239,9 @@ class TrafficEnv(object):
             nextTlsId = self.cross_mapping[now_roadid]
             rygState = traci.trafficlight.getRedYellowGreenState(nextTlsId)
             nextLight = rygState[self.light_mapping[nextTlsId]]
-
-            x,y = self.trafficPos_mapping[nextLight][0],self.trafficPos_mapping[nextLight][1]
-            distance = traci.vehicle.getDrivingDistance2D(self.AgentId,x,y)
+            x,y = self.trafficPos_mapping[nextTlsId][0],self.trafficPos_mapping[nextTlsId][1]
+            x_v,y_v = traci.vehicle.getPosition(self.AgentId)
+            distance = math.sqrt((x_v-x)**2+(y_v-y)**2)/1000
         except:
             nextLight='g'
             distance = 100

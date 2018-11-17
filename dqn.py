@@ -4,7 +4,7 @@ import math
 import tensorflow as tf
 
 BATCH_SIZE = 32
-LR = 0.0001
+LR = 0.00001
 EPSILON = 0.1
 GAMMA = 0.9
 TARGET_REPLACE_ITER = 3000
@@ -60,8 +60,8 @@ with tf.variable_scope('q'):
 
     b3w = 0.01 * tf.Variable(tf.random_normal([input_size3, output_size3]), name="b3w")
     b3b = tf.Variable(tf.zeros([1, output_size3]), name="b3b")
-    real_input = tf.concat([sliding_out, tf_s_others], 1)
-    b3lo = tf.matmul(real_input, b3w) + b3b
+    myreal_input = tf.concat([sliding_out, tf_s_others], 1)
+    b3lo = tf.matmul(myreal_input, b3w) + b3b
     b3o = tf.nn.relu(b3lo)
     b4w = 0.01 * tf.Variable(tf.random_normal([input_size4, output_size4]), name="b4w")
     b4b = tf.Variable(tf.zeros([1, output_size4]), name="b4b")
@@ -130,7 +130,9 @@ loss = tf.reduce_mean(tf.squared_difference(input_q_values, q_wrt_a))
 train_op = tf.train.AdamOptimizer(LR).minimize(loss)
 
 sess = tf.Session()
-sess.run(tf.global_variables_initializer())
+saver = tf.train.Saver()
+
+#sess.run(tf.global_variables_initializer())
 
 
 def choose_action(s_sliding, s_others):
@@ -141,7 +143,10 @@ def choose_action(s_sliding, s_others):
     # print(s_others.shape)
 
     if np.random.uniform() < EPSILON:
+        #zhongjian = sess.run(myreal_input, feed_dict={tf_s_sliding: s_sliding, tf_s_others: s_others})
+        #print(zhongjian)
         actions_value = sess.run(q, feed_dict={tf_s_sliding: s_sliding, tf_s_others: s_others})
+        print(actions_value)
         action = np.argmax(actions_value)
     else:
         action = np.random.randint(0, N_ACTIONS)
@@ -197,5 +202,3 @@ def learn():
               tf_s_others_: b_s_others_, input_q_values: q_target})
 
 print('\nCollecting experience...')
-
-saver = tf.train.Saver()
