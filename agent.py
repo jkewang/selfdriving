@@ -11,7 +11,7 @@ while(1):
     #time.sleep(1)
     if end == 1:
         myenv.reset()
-        print("end!")
+        print("end!                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ")
     elif end == 100:
         myenv.reset()
         print("arrive!")

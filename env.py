@@ -8,7 +8,8 @@ else:
 config_path = "/home/jkwang/learn_sumo/quickstart/quickstart.sumo.cfg"
 sumoBinary = "/usr/bin/sumo"
 sumoguiBinary = "/usr/bin/sumo-gui"
-sumoCmd = [sumoguiBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
+sumoCmd = [sumoBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
+
 import traci
 import traci.constants as tc
 import math
@@ -31,7 +32,8 @@ class TrafficEnv(object):
             "cross_4":-3,
             "cross_5":-1,
             "cross_2":-1,
-            "cross_1": 1
+            "cross_1": 1,
+            "cross_6": 1
         }
         self.trafficPos_mapping={
             "cross_3": [-1000,0],
@@ -51,7 +53,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255 , 0, 0, 255))
         traci.vehicle.setSpeed("agent",10)
-        traci.gui.trackVehicle('View #0', "agent")
+        #traci.gui.trackVehicle('View #0', "agent")
 
         #States
         self.Route = traci.vehicle.getRoute(self.AgentId)
@@ -59,6 +61,7 @@ class TrafficEnv(object):
         self.VehicleState = [0,0,0]
         self.RoadState = [0 for i in range(9)]
         self.state = None
+        self.lastTlsTd = "cross_6"
 
         #property to simulate
         self.end_x = 0
@@ -67,7 +70,7 @@ class TrafficEnv(object):
         self.AgentY = 0
         self.AgentSpeed = 10
         self.AgentAccRate = 2.0
-        self.AgentDecRate = 1.5
+        self.AgentDecRate = 1.0
         self.minLaneNumber = 0
         self.maxLaneNumber = 1
         self.oldDistance = 0
@@ -78,13 +81,17 @@ class TrafficEnv(object):
         self.TotalReward = 0
         self.oldDistance = 0
         self.nowDistance = 0
+        self.lastTlsTd = "cross_6"
+        self.lastdistance = 0.99
+        self.x_v = 0
+        self.y_v = 0
 
         traci.load(["-c",config_path,"--collision.action","remove","--no-step-log","--no-warnings","--no-duration-log"])
         print("Resetting...")
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255, 0, 0, 255))
         traci.vehicle.setSpeed("agent", 10)
-        traci.gui.trackVehicle('View #0', "agent")
+        #traci.gui.trackVehicle('View #0', "agent")
 
         traci.simulationStep()
         AgentAvailable = False
@@ -100,7 +107,7 @@ class TrafficEnv(object):
             if vehId == self.AgentId:
                 traci.vehicle.setSpeedMode(self.AgentId,0)
                 traci.vehicle.setLaneChangeMode(self.AgentId,0)
-        self.state = self.perception()
+        self.state,breaklight,breakstop,wronglane = self.perception()
 
         return self.state
 
@@ -153,18 +160,18 @@ class TrafficEnv(object):
             if math.sqrt((self.end_x-posAutox[0])**2+(self.end_y-posAutox[1])**2)<30:
                 self.end = 100
 
-            self.state = self.perception()
-            reward = self.cal_reward(self.end)
+            self.state,breaklight,breakstop,wronglane = self.perception()
+            reward = self.cal_reward(self.end,breaklight,breakstop,wronglane)
         else:
             #self.state = self.perception()
             self.end = 1
-            reward = self.cal_reward(is_collision=self.end)
+            reward = self.cal_reward(is_collision=self.end,breaklight=0,breakstop=0,wronglane=0)
             DistanceTravelled = 0
 
 
         return self.state, reward, self.end, DistanceTravelled
 
-    def cal_reward(self,is_collision):
+    def cal_reward(self,is_collision,breaklight,breakstop,wronglane):
         if is_collision == 1:
             print("collision!")
             return -30
@@ -176,7 +183,13 @@ class TrafficEnv(object):
             del_distance = self.nowDistance - self.oldDistance
             reward = del_distance/500
             self.oldDistance = self.nowDistance
-
+            if breaklight == 1:
+                reward -= 4
+            if breakstop == 1:
+                reward -= 1
+            if wronglane == 1:
+                print("wronglane!")
+                reward -= 2
             return reward
 
     def perception(self):
@@ -222,9 +235,12 @@ class TrafficEnv(object):
                 indexY = int((30 - relY)/2 - 0.5)
                 self.OccMapState[indexY,indexX] = 1.0
 
+            #add for fc dqn
+        self.OccMapState = self.OccMapState.reshape(-1)
+
         #-------------------------------to get the RoadState----------------------------
         #RoadState: [leftcan rightcan distance r y g leftava centerava rightava]
-        self.RoadState = [1 for i in range(9)]
+        self.RoadState = [1.0 for i in range(9)]
         now_laneindex = 0
         for vehId in self.VehicleIds:
             if vehId == self.AgentId:
@@ -235,16 +251,42 @@ class TrafficEnv(object):
         elif now_laneindex - 1 < self.minLaneNumber:
             self.RoadState[1] = 0
 
+        breaklight = 0
+        breakstop = 0
+
         try:
             nextTlsId = self.cross_mapping[now_roadid]
             rygState = traci.trafficlight.getRedYellowGreenState(nextTlsId)
             nextLight = rygState[self.light_mapping[nextTlsId]]
             x,y = self.trafficPos_mapping[nextTlsId][0],self.trafficPos_mapping[nextTlsId][1]
             x_v,y_v = traci.vehicle.getPosition(self.AgentId)
+            #print("trying")
             distance = math.sqrt((x_v-x)**2+(y_v-y)**2)/1000
+            #print("distance=",distance)
+            if distance > 0.1 and distance==self.lastdistance:
+                #print("breakstop")
+                breakstop = 1
+            self.lastTlsTd = nextTlsId
+            self.lastdistance = distance
+            #print("last_distance",self.lastdistance)
+            #print(nextTlsId)
+            #print(distance)
         except:
-            nextLight='g'
+            x_v, y_v = traci.vehicle.getPosition(self.AgentId)
+            if ((self.x_v-x_v)==0 and (self.y_v-y_v)==0):
+                breakstop = 1
+            else:
+                breakstop = 0
+
+            rygState = traci.trafficlight.getRedYellowGreenState(self.lastTlsTd)
+            nextLight = rygState[self.light_mapping[self.lastTlsTd]]
+            #nextLight='g'
             distance = 100
+            if nextLight == ('r' or 'R'):
+                breaklight = 1
+            self.x_v,self.y_v = x_v,y_v
+
+            #print("except")
 
         self.RoadState[2] = distance
         if nextLight == 'g' or nextLight == 'G':
@@ -264,12 +306,13 @@ class TrafficEnv(object):
             if vehId == self.AgentId:
                 nowLaneId = traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_LANE_ID]
                 links = traci.lane.getLinks(nowLaneId)
+                self.RoadState[6] = 0
+                self.RoadState[7] = 0
+                self.RoadState[8] = 0
                 for link in links:
                     okRoad = link[0][0:link[0].rfind("_")]
                     if okRoad in self.Route:
                         self.RoadState[7] = 1
-                    else:
-                        self.RoadState[7] = 0
                 try:
                     leftLaneId = nowLaneId[0:-1] + str(int(nowLaneId[-1])+1)
                     links = traci.lane.getLinks(leftLaneId)
@@ -277,8 +320,6 @@ class TrafficEnv(object):
                         okRoad = link[0][0:link[0].rfind("_")]
                         if okRoad in self.Route:
                             self.RoadState[6] = 1
-                        else:
-                            self.RoadState[6] = 0
                 except:
                     self.RoadState[6] = 0
                 try:
@@ -288,10 +329,11 @@ class TrafficEnv(object):
                         okRoad = link[0][0:link[0].rfind("_")]
                         if okRoad in self.Route:
                             self.RoadState[8] = 1
-                        else:
-                            self.RoadState[8] = 0
                 except:
                     self.RoadState[8] = 0
+        wronglane = 0
+        if distance <0.1 and self.RoadState[7]==0:
+            wronglane = 1
 
-        return [self.OccMapState,self.VehicleState,self.RoadState]
+        return [self.OccMapState,self.VehicleState,self.RoadState],breaklight,breakstop,wronglane
 

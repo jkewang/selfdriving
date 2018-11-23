@@ -15,7 +15,7 @@ MEMORY_COUNTER = 0
 
 N_ACTIONS = 5
 N_SLIDING = 140
-N_OTHERS = 12
+N_OTHERS = 12*10
 N_STATES = N_SLIDING + N_OTHERS
 MEMORY = np.zeros((MEMORY_CAPACITY, N_STATES * 2 + 3))
 
@@ -49,7 +49,7 @@ with tf.variable_scope('q'):
     sliding_out = tf.reshape(avg_out, [-1, 21 * 64])
     tf_s_others = tf.reshape(tf_s_others, [-1, N_OTHERS])
 
-    input_size3 = 1356
+    input_size3 = 1344 + N_OTHERS
     output_size3 = 1024
     input_size4 = 1024
     output_size4 = 512
@@ -97,7 +97,7 @@ with tf.variable_scope('q_next'):
     sliding_out = tf.reshape(avg_out, [-1, 21 * 64])
     tf_s_others_ = tf.reshape(tf_s_others_, [-1, N_OTHERS])
 
-    input_size3 = 1356
+    input_size3 = 1344 + N_OTHERS
     output_size3 = 1024
     input_size4 = 1024
     output_size4 = 512
@@ -132,7 +132,7 @@ train_op = tf.train.AdamOptimizer(LR).minimize(loss)
 sess = tf.Session()
 saver = tf.train.Saver()
 
-#sess.run(tf.global_variables_initializer())
+sess.run(tf.global_variables_initializer())
 
 
 def choose_action(s_sliding, s_others):
@@ -163,7 +163,6 @@ def store_transition(s_sliding, s_others, a, r, s_sliding_, s_others_, done):
     index = MEMORY_COUNTER % MEMORY_CAPACITY
     MEMORY[index, :] = transition
     MEMORY_COUNTER += 1
-
 
 def learn():
     global LEARNING_STEP_COUNTER
