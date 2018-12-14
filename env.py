@@ -181,7 +181,7 @@ class TrafficEnv(object):
         else:
             self.nowDistance = traci.vehicle.getDistance(self.AgentId)
             del_distance = self.nowDistance - self.oldDistance
-            reward = del_distance/500
+            reward = float(del_distance-8)/50.0
             self.oldDistance = self.nowDistance
             if breaklight == 1:
                 reward -= 4
