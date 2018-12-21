@@ -57,7 +57,7 @@ class TrafficEnv(object):
 
         #States
         self.Route = traci.vehicle.getRoute(self.AgentId)
-        self.OccMapState = np.zeros((20, 7))
+        self.OccMapState = np.zeros((40, 7))
         self.VehicleState = [0,0,0]
         self.RoadState = [0 for i in range(9)]
         self.state = None
@@ -226,9 +226,9 @@ class TrafficEnv(object):
         #---------------------to calculate the occupanied state-----------------------
         LOW_X_BOUND = -6
         HIGH_X_BOUND = 6
-        LOW_Y_BOUND = -10
-        HIGH_Y_BOUND = 30
-        self.OccMapState = np.zeros((20, 7))
+        LOW_Y_BOUND = -18
+        HIGH_Y_BOUND = 60
+        self.OccMapState = np.zeros((40, 7))
         for VehicleParam in AllVehicleParams:
             VehiclePos = VehicleParam[tc.VAR_POSITION]
             rol = math.sqrt((VehiclePos[0]-self.AgentX)**2+(VehiclePos[1]-self.AgentY)**2)
@@ -239,11 +239,12 @@ class TrafficEnv(object):
             relY = rol*math.sin(reltheta)
             if (relX>LOW_X_BOUND and relX<HIGH_X_BOUND) and (relY>LOW_Y_BOUND and relY<HIGH_Y_BOUND):
                 indexX = int((6 + relX)/2 + 0.5)
-                indexY = int((30 - relY)/2 + 0.5)
+                indexY = int((60 - relY)/2 + 0.5)
 
                 self.OccMapState[indexY,indexX] = 1.0
 
             #add for fc dqn
+        print(self.OccMapState)
         self.OccMapState = self.OccMapState.reshape(-1)
 
         #-------------------------------to get the RoadState----------------------------

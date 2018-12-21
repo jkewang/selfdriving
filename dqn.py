@@ -14,7 +14,7 @@ global MEMORY_COUNTER
 MEMORY_COUNTER = 0
 
 N_ACTIONS = 5
-N_SLIDING = 140
+N_SLIDING = 280
 N_OTHERS = 12*10
 N_STATES = N_SLIDING + N_OTHERS
 MEMORY = np.zeros((MEMORY_CAPACITY, N_STATES * 2 + 3))
@@ -155,9 +155,9 @@ def choose_action(s_sliding, s_others):
 
 def store_transition(s_sliding, s_others, a, r, s_sliding_, s_others_, done):
     global MEMORY_COUNTER
-    s_sliding = np.reshape(s_sliding, (140))
+    s_sliding = np.reshape(s_sliding, (280))
     s_others = np.reshape(s_others, (N_OTHERS))
-    s_sliding_ = np.reshape(s_sliding_, (140))
+    s_sliding_ = np.reshape(s_sliding_, (280))
     s_others_ = np.reshape(s_others_, (N_OTHERS))
     transition = np.hstack((s_sliding, s_others, [a, r, done], s_sliding_, s_others_))
     index = MEMORY_COUNTER % MEMORY_CAPACITY

@@ -32,6 +32,7 @@ for i_episode in range(1000000):
     mydict = ["go","stop","left","right","nothing"]
     while True:
         action = bt.choose_action(s_sliding, s_others)
+        #action = 0
         print(mydict[action])
 
         # print("now_action",int(action))
