@@ -12,9 +12,9 @@ handler.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 my_env = env.TrafficEnv()
-bt.saver.restore(bt.sess,"./model/dqn_fc_fine/my-model.ckpt-4500")
+bt.saver.restore(bt.sess,"./model/my-model.ckpt-3500")
 f = open("./logger.txt",'w')
-bt.EPSILON = 0.9
+bt.EPSILON = 0.9999
 
 for i_episode in range(1000000):
     # listener()
@@ -30,9 +30,10 @@ for i_episode in range(1000000):
     # fsm.Tick(command)
     k = 0
     ep_r = 0
+
     while True:
         action = bt.choose_action(s_sliding, s_others)
-        # print("now_action",int(action))
+        print("now_action",int(action))
         s, r, is_done, dist = my_env.step(action)
 
         print("reward=",r)

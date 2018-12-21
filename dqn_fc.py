@@ -8,7 +8,7 @@ LR = 0.00001
 EPSILON = 0.1
 GAMMA = 0.9
 TARGET_REPLACE_ITER = 3000
-MEMORY_CAPACITY = 10000
+MEMORY_CAPACITY = 30000
 LEARNING_STEP_COUNTER = 0
 global MEMORY_COUNTER
 MEMORY_COUNTER = 0
@@ -111,7 +111,6 @@ sess = tf.Session()
 saver = tf.train.Saver()
 
 sess.run(tf.global_variables_initializer())
-
 
 def choose_action(s_sliding, s_others):
     #print(s_sliding)

@@ -8,7 +8,7 @@ else:
 config_path = "/home/jkwang/learn_sumo/quickstart/quickstart.sumo.cfg"
 sumoBinary = "/usr/bin/sumo"
 sumoguiBinary = "/usr/bin/sumo-gui"
-sumoCmd = [sumoBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
+sumoCmd = [sumoguiBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
 
 import traci
 import traci.constants as tc
@@ -53,7 +53,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255 , 0, 0, 255))
         traci.vehicle.setSpeed("agent",10)
-        #traci.gui.trackVehicle('View #0', "agent")
+        traci.gui.trackVehicle('View #0', "agent")
 
         #States
         self.Route = traci.vehicle.getRoute(self.AgentId)
@@ -69,7 +69,7 @@ class TrafficEnv(object):
         self.AgentX = 0
         self.AgentY = 0
         self.AgentSpeed = 10
-        self.AgentAccRate = 2.0
+        self.AgentAccRate = 1.0
         self.AgentDecRate = 1.0
         self.minLaneNumber = 0
         self.maxLaneNumber = 1
@@ -91,7 +91,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255, 0, 0, 255))
         traci.vehicle.setSpeed("agent", 10)
-        #traci.gui.trackVehicle('View #0', "agent")
+        traci.gui.trackVehicle('View #0', "agent")
 
         traci.simulationStep()
         AgentAvailable = False
@@ -119,6 +119,8 @@ class TrafficEnv(object):
         #    2    |    change left
         #    3    |    change right
         #    4    |    do nothing
+        traci.vehicle.setSpeedMode(self.AgentId, 0)
+        traci.vehicle.setLaneChangeMode(self.AgentId, 0)
 
         position = traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_POSITION]
         if (abs(position[0])+abs(position[1]))<999:
@@ -132,20 +134,23 @@ class TrafficEnv(object):
         if action == 0:
             maxSpeed = 16
             time = (maxSpeed - (traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED])) / self.AgentAccRate
-            traci.vehicle.slowDown(self.AgentId, maxSpeed, time)
+            traci.vehicle.slowDown(self.AgentId, maxSpeed, 100*time)
         elif action == 1:
             time = ((traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED]) - 0)/self.AgentDecRate
-            traci.vehicle.slowDown(self.AgentId, 0, time)
+            traci.vehicle.slowDown(self.AgentId, 0, 100*time)
         elif action == 2:
             laneindex = traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_LANE_INDEX]
             if laneindex < self.maxLaneNumber:
                 traci.vehicle.changeLane(self.AgentId,laneindex+1,100)
+            traci.vehicle.setSpeed(self.AgentId, traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED])
         elif action == 3:
             laneindex = traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_LANE_INDEX]
             if laneindex > self.minLaneNumber:
                 traci.vehicle.changeLane(self.AgentId,laneindex-1,100)
+            traci.vehicle.setSpeed(self.AgentId, traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED])
         elif action == 4:
             traci.vehicle.setSpeed(self.AgentId,traci.vehicle.getSubscriptionResults(self.AgentId)[tc.VAR_SPEED])
+
         traci.simulationStep()
         self.VehicleIds = traci.vehicle.getIDList()
 
@@ -177,14 +182,15 @@ class TrafficEnv(object):
             return -30
         elif is_collision == 100:
             print("arrive!")
-            return 20
+            return 100
         else:
             self.nowDistance = traci.vehicle.getDistance(self.AgentId)
             del_distance = self.nowDistance - self.oldDistance
-            reward = float(del_distance-8)/50.0
+            reward = float(del_distance-8)/500.0
             self.oldDistance = self.nowDistance
             if breaklight == 1:
                 reward -= 4
+                print("break_light")
             if breakstop == 1:
                 reward -= 1
             if wronglane == 1:
@@ -227,12 +233,14 @@ class TrafficEnv(object):
             VehiclePos = VehicleParam[tc.VAR_POSITION]
             rol = math.sqrt((VehiclePos[0]-self.AgentX)**2+(VehiclePos[1]-self.AgentY)**2)
             theta = math.atan2(VehiclePos[1]-self.AgentY,VehiclePos[0]-self.AgentX)
+
             reltheta = theta + self.AgentAngle
             relX = rol*math.cos(reltheta)
             relY = rol*math.sin(reltheta)
             if (relX>LOW_X_BOUND and relX<HIGH_X_BOUND) and (relY>LOW_Y_BOUND and relY<HIGH_Y_BOUND):
-                indexX = int((6 + relX)/2 - 0.5)
-                indexY = int((30 - relY)/2 - 0.5)
+                indexX = int((6 + relX)/2 + 0.5)
+                indexY = int((30 - relY)/2 + 0.5)
+
                 self.OccMapState[indexY,indexX] = 1.0
 
             #add for fc dqn
@@ -284,6 +292,8 @@ class TrafficEnv(object):
             distance = 100
             if nextLight == ('r' or 'R'):
                 breaklight = 1
+            else:
+                breaklight = -1
             self.x_v,self.y_v = x_v,y_v
 
             #print("except")
