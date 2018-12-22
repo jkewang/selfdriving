@@ -8,7 +8,7 @@ else:
 config_path = "/home/jkwang/learn_sumo/quickstart/quickstart.sumo.cfg"
 sumoBinary = "/usr/bin/sumo"
 sumoguiBinary = "/usr/bin/sumo-gui"
-sumoCmd = [sumoguiBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
+sumoCmd = [sumoBinary,"-c",config_path,"--collision.action","remove","--start","--no-step-log","--no-warnings","--no-duration-log"]
 
 import traci
 import traci.constants as tc
@@ -53,7 +53,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255 , 0, 0, 255))
         traci.vehicle.setSpeed("agent",10)
-        traci.gui.trackVehicle('View #0', "agent")
+        #traci.gui.trackVehicle('View #0', "agent")
 
         #States
         self.Route = traci.vehicle.getRoute(self.AgentId)
@@ -91,7 +91,7 @@ class TrafficEnv(object):
         #traci.vehicle.add("agent", "agent_route")
         traci.vehicle.setColor("agent", (255, 0, 0, 255))
         traci.vehicle.setSpeed("agent", 10)
-        traci.gui.trackVehicle('View #0', "agent")
+        #traci.gui.trackVehicle('View #0', "agent")
 
         traci.simulationStep()
         AgentAvailable = False
@@ -244,7 +244,6 @@ class TrafficEnv(object):
                 self.OccMapState[indexY,indexX] = 1.0
 
             #add for fc dqn
-        print(self.OccMapState)
         self.OccMapState = self.OccMapState.reshape(-1)
 
         #-------------------------------to get the RoadState----------------------------
